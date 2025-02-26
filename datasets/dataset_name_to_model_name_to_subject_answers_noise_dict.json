@@ -1,0 +1,32 @@
+{
+  "country_cities": {
+    "meta-llama/Meta-Llama-3-8B-Instruct": {
+      "subject": 0.0238265991210937,
+      "answers": 0.023712158203125
+    },
+    "mistralai/Mistral-7B-Instruct-v0.2": {
+      "subject": 0.00666046142578125,
+      "answers": 0.00647163391113281
+    }
+  },
+  "artist_songs": {
+    "meta-llama/Meta-Llama-3-8B-Instruct": {
+      "subject": 0.0231857299804687,
+      "answers": 0.0227508544921875
+    },
+    "mistralai/Mistral-7B-Instruct-v0.2": {
+      "subject": 0.00666618347167968,
+      "answers": 0.00655174255371093
+    }
+  },
+  "actor_movies": {
+    "meta-llama/Meta-Llama-3-8B-Instruct": {
+      "subject": 0.0238723754882812,
+      "answers": 0.0231513977050781
+    },
+    "mistralai/Mistral-7B-Instruct-v0.2": {
+      "subject": 0.00676918029785156,
+      "answers": 0.00656318664550781
+    }
+  }
+}

@@ -1,1 +1,90 @@
-# how-llm-answer-one-to-many-factual-queries
+# how-lms-answer-one-to-many-factual-queries
+[//]: # (TODO add paper link)
+This repository is the official implementation of our paper [Promote, Suppress, Iterate: How Language Models Answer One-to-Many Factual Queries]().
+
+## Setup
+### Dependencies
+Experiments are run in:
+
+|    Package     | Version |
+|:--------------:|:-------:|
+|     conda      | 23.1.0  |
+|     Python     |   3.8   |
+|      CUDA      |  11.7   |
+
+### Install
+```bash
+conda create -n one_to_many python=3.8
+conda activate one_to_many
+pip install -r requirements.txt
+```
+
+## Datasets
+The [datasets](datasets) directory contains all the data used in the experiments with the following structure:
+```
+└── datasets
+    └── actor_movies
+        └──meta-llama/Meta-Llama-3-8B-Instruct
+            ├── actor_movies_1.jsonl
+            ├── actor_movies_2.jsonl
+            └── actor_movies_3.jsonl
+        └──mistralai/Mistral-7B-Instruct-v0.2
+            └── ...
+    └── artist_songs
+    └── country_cities
+```
+
+where $i$ in ```{dataset_name}_{i}.jsonl``` is the answer step. 
+Refer to [README.md](datasets/README.md) for file content details and section 3.2 of the paper for dataset curation.
+
+## Experiments
+### Decoding the Overall Mechanism: Decode Attention and MLP Outputs
+1. Set model, dataset, and answer step in [run_main_configs.yaml](configs/run_main_configs.yaml). Set ```exp_type``` to be ```decode_attn_mlp_outputs```.
+2. Run:
+    ```
+    bash scripts/run_main.sh
+    ```
+3. Visualize results by setting model/dataset in [visualize_decode_attention_mlp_output.sh](scripts/visualize_decode_attention_mlp_output.sh) and run:
+    ```
+    bash scripts/visualize_decode_attention_mlp_output.sh
+    ```
+
+### Which Tokens Matter: Causal Tracing
+We follow [ROME](https://github.com/kmeng01/rome) to run causal tracing experiments. All codes are in [causal_tracing](src/causal_tracing) directory.
+1. Set model, dataset, and token you want to noise (noise_subject/noise_prev_ans) in [run_causal_tracing.sh](scripts/run_causal_tracing.sh).
+2. Run:
+    ```
+    bash scripts/run_causal_tracing.sh
+    ```
+3. Visualize results by setting model/dataset in [visualize_causal_tracing.sh](scripts/visualize_causal_tracing.sh) and run:
+    ```
+    bash scripts/visualize_causal_tracing.sh
+    ```
+
+### Critical Token Analysis: Token Lens & Attention Knockout
+1.  Set model, dataset, and answer step in [run_main_configs.yaml](configs/run_main_configs.yaml). Set ```exp_type``` to be ```analyze_critical_tokens```.
+2. Run:
+    ```
+    bash scripts/run_main.sh
+    ```
+3. Visualize results by setting model/dataset in [visualize_critical_token_outputs.sh](scripts/visualize_critical_token_outputs.sh) and run:
+    ```
+    bash scripts/visualize_critical_token_outputs.sh
+    ```
+
+### Function of Attention Heads (Appendix F)
+1. Set ```exp_type``` to be ```examine_finegrained_attention_head``` in [run_main_configs.yaml](configs/run_main_configs.yaml)
+2. Run:
+      ```
+      bash scripts/run_main.sh
+      ```
+3. Visualize results by setting model/dataset in [visualize_finegrained_attention_head_output.sh](scripts/visualize_finegrained_attention_head_output.sh) and run:
+      ```
+      bash scripts/visualize_finegrained_attention_head_output.sh
+      ```
+
+[//]: # (## Citation TODO)
+
+[//]: # (```)
+
+[//]: # (```)
