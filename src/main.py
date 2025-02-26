@@ -4,7 +4,7 @@ from src.common_utils import load_config_and_setup_output_dir
 from src.data_module.load_data import load_data_from_hf, setup_dataloader
 from src.data_module.preprocessing import preprocess
 from src.model_module.load_model import load_model
-from src.train_module.OneToManyExpRunner import OneToManyExpRunner
+from src.run_module.OneToManyExpRunner import OneToManyExpRunner
 
 
 def main(args):
