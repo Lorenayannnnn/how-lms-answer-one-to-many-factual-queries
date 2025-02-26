@@ -1,5 +1,5 @@
 data_args:
-  dataset_name: "actor_movies"    # TODO set dataset name: "country_cities", "artist_songs", "actor_movies"
+  dataset_name: "country_cities"    # TODO set dataset name: "country_cities", "artist_songs", "actor_movies"
   cache_dir: None
   add_bos_token: False
   add_eos_token: False
@@ -10,8 +10,8 @@ model_args:
   tokenizer_name: null
 
 running_args:
-  target_answer_idx: 3    # TODO set answer step: 1, 2, 3
-  exp_type: "examine_finegrained_attention_head"   # TODO set experiment type: "decode_attn_mlp_outputs", "analyze_critical_tokens", "examine_finegrained_attention_head"
+  target_answer_idx: 1    # TODO set answer step: 1, 2, 3
+  exp_type: "decode_attn_mlp_outputs"   # TODO set experiment type: "decode_attn_mlp_outputs", "analyze_critical_tokens", "examine_finegrained_attention_head"
 
   # These won't have any effect if exp_type is not "analyze_critical_tokens".
   do_token_lens: True
