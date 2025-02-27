@@ -7,7 +7,7 @@ MODEL_NAME="meta-llama/Meta-Llama-3-8B-Instruct2"  # meta-llama/Meta-Llama-3-8B-
 DATASET_NAME="country_cities"       # country_cities, artist_songs, actor_movies
 CACHE_DIR=""
 
-python src/causal_tracing/main.py \
+CUDA_VISIBLE_DEVICES=0 python src/causal_tracing/main.py \
     --project_root_dir "${PROJECT_ROOT_DIR}" \
     --examine_type "${EXAMINE_TYPE}" \
     --model_name "${MODEL_NAME}" \
