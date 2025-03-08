@@ -33,7 +33,8 @@ The [datasets](datasets) directory contains all the data used in the experiments
     └── country_cities
 ```
 
-where $i$ in ```{dataset_name}_{i}.jsonl``` is the answer step. 
+where $i$ in ```{dataset_name}_{i}.jsonl``` is the answer step. The datasets are also available on Hugging Face at [LorenaYannnnn/how_lms_answer_one_to_many_factual_queries](https://huggingface.co/datasets/LorenaYannnnn/how_lms_answer_one_to_many_factual_queries).
+
 Refer to [README.md](datasets/README.md) for file content details and section 3.2 of the paper for dataset curation.
 
 ## Experiments
@@ -82,7 +83,7 @@ We follow [ROME](https://github.com/kmeng01/rome) to run causal tracing experime
       bash scripts/visualize_finegrained_attention_head_output.sh
       ```
 
-## Citation TODO
+## Citation
 ```
 @article{yan2025promote,
   title={Promote, Suppress, Iterate: How Language Models Answer One-to-Many Factual Queries},
