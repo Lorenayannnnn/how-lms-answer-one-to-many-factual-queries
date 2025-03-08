@@ -1,6 +1,5 @@
 # how-lms-answer-one-to-many-factual-queries
-[//]: # (TODO add paper link)
-This repository is the official implementation of our paper [Promote, Suppress, Iterate: How Language Models Answer One-to-Many Factual Queries]().
+This repository is the official implementation of our paper [Promote, Suppress, Iterate: How Language Models Answer One-to-Many Factual Queries](https://www.arxiv.org/abs/2502.20475).
 
 ## Setup
 ### Dependencies
@@ -83,8 +82,12 @@ We follow [ROME](https://github.com/kmeng01/rome) to run causal tracing experime
       bash scripts/visualize_finegrained_attention_head_output.sh
       ```
 
-[//]: # (## Citation TODO)
-
-[//]: # (```)
-
-[//]: # (```)
+## Citation TODO
+```
+@article{yan2025promote,
+  title={Promote, Suppress, Iterate: How Language Models Answer One-to-Many Factual Queries},
+  author={Yan, Tianyi Lorena and Jia, Robin},
+  journal={arXiv preprint arXiv:2502.20475},
+  year={2025}
+}
+```
