@@ -122,7 +122,7 @@ def plot_all_flow(mt, prompt, tokens_to_be_noised_start_end_idx, noise, output_d
         # Read tracking json and see if the intervention has been done (Track progress for easier restart)
         examine_type_step_kind_output_path = os.path.join(output_dir, f"{kind}_result")
         output_tracking_fn = f"{examine_type_step_kind_output_path}_tracking.jsonl"
-        if not has_processed(output_tracking_fn, instance_kind_name):
+        if not has_processed(output_tracking_fn, instance_name):
             result = calculate_hidden_flow(mt, prompt, tokens_to_be_noised_start_end_idx, noise=noise, kind=kind,
                                            target_answer_tokens=target_answer_tokens)
             # We are only saving the result here and not the plot for individual instance (will calculate avg later)

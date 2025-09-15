@@ -1,6 +1,6 @@
 data_args:
   dataset_name: "country_cities"    # TODO set dataset name: "country_cities", "artist_songs", "actor_movies"
-  cache_dir: None
+  cache_dir: null
   add_bos_token: False
   add_eos_token: False
 

@@ -5,14 +5,11 @@ import os
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
-from transformers.utils import logging
 
 from src.common_utils import STEP_TO_TOKEN_TYPE_NAME
 
-logger = logging.get_logger(__name__)
 
-
-class OneToManyExpRunner():
+class OneToManyExpRunner:
     def __init__(self, model, tokenizer, data_loader, args):
         self.model = model
         self.tokenizer = tokenizer
