@@ -8,7 +8,7 @@ from matplotlib import pyplot as plt
 
 from src.analysis_module.common_utils import get_component_full_name, COLOR_NAME_TO_RGB, merge_figures, \
     reformat_var_name_for_visualization, get_model_name_for_visualization, \
-    merge_dataset_model_specific_token_level_figures, ALL_TOKENS_TO_BE_VISUALIZED
+    merge_dataset_model_specific_token_level_figures, ALL_TOKENS_TO_BE_VISUALIZED, TEMPLATE_NUM
 from src.common_utils import ALL_DATASET_NAMES, ALL_MODEL_NAMES
 
 
@@ -44,7 +44,7 @@ def visualize_token_lens_three_ans_to_layer_result(layer_num, three_ans_idx_to_l
     plt.plot(layer_names, three_ans_idx_to_layer_result["answer_3"], marker='^', label='Answer 3', linestyle=answer_idx_to_line_style[2], color=COLOR_NAME_TO_RGB['green'])
     plt.plot(layer_names, three_ans_idx_to_layer_result["subject"], marker='*', label='Subject', linestyle=answer_idx_to_line_style[-1], color=COLOR_NAME_TO_RGB['red'])
 
-    if input_omit_early_layers and "macro_avg" in output_dir:
+    if input_omit_early_layers and "macro_avg" in output_dir:       # Adjust min max here
         if component_name == "Attention":
             plt.ylim(top=1.3, bottom=-0.9)
         elif component_name == "MLP":
@@ -89,8 +89,8 @@ def process_and_avg_result_helper(input_json_fn, calculate_avg=True):
     return token_name_to_layer_idx_final_val, entry_cnt
 
 
-def visualize_dataset_model_specific_result(result_dir, dataset_name, model_name, omit_early_layers):
-    data_model_specific_dir = f"{result_dir}/{args.dataset_name}/{args.model_name}"
+def visualize_dataset_model_specific_result(result_dir, dataset_name, model_name, template_idx, omit_early_layers):
+    data_model_specific_dir = f"{result_dir}/{args.dataset_name}/{args.model_name}/prompt_template_{template_idx}"
     dataset_name_for_visualize = reformat_var_name_for_visualization(dataset_name)
     model_name_for_visualize = get_model_name_for_visualization(model_name)
     component_name_to_step_fn_list = {}
@@ -136,31 +136,36 @@ def visualize_macro_avg(result_dir, omit_early_layers):
         tmp_output_dir = f"{output_dir}/{'full_figures' if not omit_early_layers else 'omit_early_layer_figures'}/{component_name}"
         for target_answer_idx in [1, 2, 3]:
             output_figure_fn_list = []
-            # Average across models for each dataset
+            # Average across models and templates for each dataset
             dataset_name_to_token_name_to_layer_idx_vals = {dataset_name: {} for dataset_name in ALL_DATASET_NAMES}
             for dataset_name in ALL_DATASET_NAMES:
                 tmp_dataset_results = {}
-                tmp_dataset_line_cnt = 0
                 for model_name in ALL_MODEL_NAMES:
-                    tmp_jsonl_fn = f"{result_dir}/{dataset_name}/{model_name}/{target_answer_idx}/{component_name}_output.jsonl"
-                    tmp_result, tmp_line_cnt = process_and_avg_result_helper(tmp_jsonl_fn, calculate_avg=False)
-                    if tmp_dataset_results == {}:
-                        tmp_dataset_results = tmp_result
-                    else:
-                        # Add up for each layer
-                        for token_name, layer_vals in tmp_result.items():
-                            tmp_dataset_results[token_name] = np.sum([np.array(tmp_dataset_results[token_name]), np.array(layer_vals)], axis=0)
-                    tmp_dataset_line_cnt += tmp_line_cnt
-                # Average for each dataset
+                    tmp_data_model_results = {}     # Sum up avg results across prompt templates
+                    for template_idx in range(1, TEMPLATE_NUM + 1):
+                        tmp_jsonl_fn = f"{result_dir}/{dataset_name}/{model_name}/prompt_template_{template_idx}/{target_answer_idx}/{component_name}_output.jsonl"
+                        tmp_result, _ = process_and_avg_result_helper(tmp_jsonl_fn, calculate_avg=True)
+                        if tmp_data_model_results == {}:
+                            tmp_data_model_results = tmp_result
+                        else:
+                            # Add up for each layer
+                            for token_name, layer_vals in tmp_result.items():
+                                tmp_data_model_results[token_name] = np.sum([np.array(tmp_data_model_results[token_name]), np.array(layer_vals)], axis=0)
+
+                    # For each model: Average across templates
+                    for token_name in ALL_TOKENS_TO_BE_VISUALIZED:
+                        if token_name not in tmp_dataset_results:
+                            tmp_dataset_results.setdefault(token_name, {})
+                        tmp_dataset_results[token_name][model_name] = (tmp_data_model_results[token_name] / 3).tolist()
+
+                # For each dataset: Average across models
                 for token_name in ALL_TOKENS_TO_BE_VISUALIZED:
-                    tmp_dataset_results[token_name] = (tmp_dataset_results[token_name] / tmp_dataset_line_cnt).tolist()
-                dataset_name_to_token_name_to_layer_idx_vals[dataset_name] = tmp_dataset_results
+                    dataset_name_to_token_name_to_layer_idx_vals[dataset_name][token_name] = np.average([tmp_dataset_results[token_name][model_name] for model_name in ALL_MODEL_NAMES], axis=0).tolist()
 
             # Macro avg across datasets
             token_name_to_layer_idx_avg_val = {token_name: [0] * LAYER_CNT for token_name in ALL_TOKENS_TO_BE_VISUALIZED}
             for token_name in ALL_TOKENS_TO_BE_VISUALIZED:
-                for layer_idx in range(LAYER_CNT):
-                    token_name_to_layer_idx_avg_val[token_name][layer_idx] = sum([dataset_name_to_token_name_to_layer_idx_vals[dataset_name][token_name][layer_idx] for dataset_name in ALL_DATASET_NAMES]) / len(ALL_DATASET_NAMES)
+                token_name_to_layer_idx_avg_val[token_name] = np.average([dataset_name_to_token_name_to_layer_idx_vals[dataset_name][token_name] for dataset_name in ALL_DATASET_NAMES], axis=0).tolist()
 
             output_figure_fn = visualize_token_lens_three_ans_to_layer_result(LAYER_CNT,
                                                                               token_name_to_layer_idx_avg_val,
@@ -176,15 +181,16 @@ if __name__ == '__main__':
     args_parser.add_argument("--result_dir", type=str, required=True)
     args_parser.add_argument("--dataset_name", type=str, required=True)      # ["country_cities", "artist_songs", "actor_movies", "macro_avg"]
     args_parser.add_argument("--model_name", type=str, required=True)        # ["meta-llama/Meta-Llama-3-8B-Instruct", "mistralai/Mistral-7B-Instruct-v0.2", "macro_avg"]
+    args_parser.add_argument("--template_idx", type=str, required=True)        # ["1", "2", "3", "macro_avg"]
     args_parser.add_argument("--omit_early_layers", type=bool, required=True)        # True for reproducing figure with 6 subfigures in a row in the paper. False for full figures in the appendix
     args = args_parser.parse_args()
 
     LAYER_CNT = 32
     OMIT_LAYER_START_IDX = 15
     ALL_COMPONENTS = ["attn", "mlp"]
-    # When visualizing macro average results across all models and datasets, both or neither of dataset_name and model_name should be "macro_avg"
-    # Otherwise, choose specific dataset_name and model_name
-    assert (args.dataset_name == "macro_avg") == (args.model_name == "macro_avg")
+    # When visualizing macro average results across all models, datasets, and prompt templates, all or none of dataset_name, model_name, template_idx should be "macro_avg"
+    # Otherwise, choose specific dataset_name, model_name, and template_idx
+    assert (args.dataset_name == "macro_avg") == (args.model_name == "macro_avg") == (args.template_idx == "macro_avg")
     if args.dataset_name == "macro_avg":
         visualize_macro_avg(args.result_dir, omit_early_layers=args.omit_early_layers)
         print(f"Visualize results in {args.result_dir}")
@@ -193,6 +199,7 @@ if __name__ == '__main__':
             result_dir=args.result_dir,
             dataset_name=args.dataset_name,
             model_name=args.model_name,
+            template_idx=args.template_idx,
             omit_early_layers=args.omit_early_layers
         )
         print(f"Visualize results in {args.result_dir}/{args.dataset_name}/{args.model_name}")
