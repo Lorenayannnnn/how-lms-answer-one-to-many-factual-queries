@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from src.analysis_module.common_utils import COLOR_NAME_TO_RGB, reformat_var_name_for_visualization, \
     get_model_name_for_visualization, merge_figures, merge_dataset_model_specific_token_level_figures, \
-    ALL_TOKENS_TO_BE_VISUALIZED
+    ALL_TOKENS_TO_BE_VISUALIZED, TEMPLATE_NUM
 from src.common_utils import STEP_TO_TOKEN_TYPE_NAME, ANS_TO_LATEX, ALL_DATASET_NAMES, ALL_MODEL_NAMES
 
 EXP_TYPE_TO_COMPONENT_NAME = {
@@ -99,29 +99,28 @@ def visualize_token_lens_three_ans_to_layer_result(token_name_to_layer_result, e
     plt.clf()
     matplotlib.pyplot.close()
 
-    print()
 
-
-def process_dataset_model_specific_critical_tokens_result(input_result_dir: str, input_dataset_name, input_model_name, input_omit_early_layers):
+def process_dataset_model_specific_critical_tokens_result(input_result_dir: str, input_dataset_name, input_model_name, input_template_idx, input_omit_early_layers):
     """
     Visualize critical tokens' results of a model on the specified dataset
     """
     dataset_name_for_visualize = reformat_var_name_for_visualization(input_dataset_name)
     model_name_for_visualize = get_model_name_for_visualization(input_model_name)
     token_type_to_exp_type_to_step_fn_list = {}
+    progress = tqdm(total=len(EXP_TYPE_TO_COMPONENT_NAME.keys()) * 3)
     for exp_type in EXP_TYPE_TO_COMPONENT_NAME.keys():
         component_name = EXP_TYPE_TO_COMPONENT_NAME[exp_type]
-        tmp_output_dir = os.path.join(input_result_dir, "figures", "data_model_specific", f"{'full_figures' if not input_omit_early_layers else 'omit_early_layer_figures'}", input_dataset_name, input_model_name)
+        tmp_output_dir = os.path.join(input_result_dir, "figures", "data_model_specific", f"{'full_figures' if not input_omit_early_layers else 'omit_early_layer_figures'}", input_dataset_name, input_model_name, f"prompt_template_{input_template_idx}")
         os.makedirs(tmp_output_dir, exist_ok=True)
         all_token_type_to_output_image_fn_list = {}
         for target_answer_idx in [1, 2, 3]:
             tmp_all_token_types = STEP_TO_TOKEN_TYPE_NAME[f"{target_answer_idx}"]
             token_type_fn_name_list = [f"{exp_type}_{tmp_token_type}_results.jsonl" for tmp_token_type in tmp_all_token_types]
-            type_to_df = {type_name: read_jsonl_to_csv(f"{os.path.join(input_result_dir, input_dataset_name, input_model_name)}/{target_answer_idx}/{type_name}") for type_name in token_type_fn_name_list}
+            type_to_df = {type_name: read_jsonl_to_csv(f"{input_result_dir}/{input_dataset_name}/{input_model_name}/prompt_template_{input_template_idx}/{target_answer_idx}/{type_name}") for type_name in token_type_fn_name_list}
 
             for tmp_token_type_fn, tmp_token_type_name in zip(token_type_fn_name_list, tmp_all_token_types):
                 token_name_to_layer_result = {token_name: [] for token_name in ALL_TOKENS_TO_BE_VISUALIZED}
-                for layer_idx in tqdm(range(LAYER_NUM)):
+                for layer_idx in range(LAYER_NUM):
                     if exp_type == "attn_knockout":
                         # Get results for the current layer
                         tmp_layer_three_answer_attn_knockout_results = np.array(type_to_df[tmp_token_type_fn][type_to_df[tmp_token_type_fn]["layer_idx"] == layer_idx][f"three_answer_first_token_attn_knockout_{component_name}_logit"].tolist()).transpose()       # shape: (3 answers, num_samples)
@@ -159,6 +158,8 @@ def process_dataset_model_specific_critical_tokens_result(input_result_dir: str,
                     output_image_fn,
                 )
 
+            progress.update(1)
+
         # Merge the images of three answer steps into one (Comment these out if you don't need this)
         if not input_omit_early_layers:
             for token_type, all_output_fn in all_token_type_to_output_image_fn_list.items():
@@ -169,7 +170,7 @@ def process_dataset_model_specific_critical_tokens_result(input_result_dir: str,
                     title = f"MLP Logit Diff when Knocking Out {reformat_var_name_for_visualization(token_type)}: {model_name_for_visualize} on {dataset_name_for_visualize}"
                 merge_figures(
                     all_output_fn, title,
-                    f"{args.result_dir}/figures/data_model_specific/full_figures/{input_dataset_name}/{input_model_name}/{token_type}/{exp_type}_logit.png",
+                    f"{args.result_dir}/figures/data_model_specific/full_figures/{input_dataset_name}/{input_model_name}/prompt_template_{input_template_idx}/{token_type}/{exp_type}_logit.png",
                     "token_lens_attn_knockout",
                 )
 
@@ -183,13 +184,15 @@ def process_dataset_model_specific_critical_tokens_result(input_result_dir: str,
                 f"{model_name_for_visualize} on {dataset_name_for_visualize}",
                 f"Token Lens Logits when Attending to {token_type_for_visualize}",
                 f"MLP Logit Diff: Knockout {token_type_for_visualize}",
-                f"{args.result_dir}/figures/data_model_specific/omit_early_layer_figures/{input_dataset_name}/{input_model_name}/{token_type}_logit.png",
+                f"{args.result_dir}/figures/data_model_specific/omit_early_layer_figures/{input_dataset_name}/{input_model_name}/prompt_template_{input_template_idx}/{token_type}_logit.png",
             )
 
 def process_critical_tokens_macro_avg_result(input_result_dir, input_omit_early_layers):
     """
     Visualize macro-average results of all models and datasets
+    (Lorena: I know this code looks messy. I'll refactor it later when I have time.)
     """
+    progress = tqdm(total=len(EXP_TYPE_TO_COMPONENT_NAME.keys()) * 3 * len(ALL_DATASET_NAMES) * len(ALL_MODEL_NAMES) * TEMPLATE_NUM, desc="Processing macro avg results")
     token_type_to_exp_type_to_step_fn_list = {}
     for exp_type in EXP_TYPE_TO_COMPONENT_NAME.keys():
         component_name = EXP_TYPE_TO_COMPONENT_NAME[exp_type]
@@ -197,71 +200,84 @@ def process_critical_tokens_macro_avg_result(input_result_dir, input_omit_early_
             # Cache macro avg results (Adjust this according to your needs)
             tmp_all_token_types = STEP_TO_TOKEN_TYPE_NAME[f"{target_answer_idx}"]
             tmp_token_result_fn_list = [f"{exp_type}_{token_type}_results.jsonl" for token_type in tmp_all_token_types]
-            # Avg within dataset
-            dataset_name_to_type_to_layer_result = {tmp_dataset_name: {} for tmp_dataset_name in ALL_DATASET_NAMES}
+            dataset_to_exp_type_to_token_layer_result = {tmp_dataset_name: {} for tmp_dataset_name in ALL_DATASET_NAMES}
+
             for tmp_dataset_name in ALL_DATASET_NAMES:
-                # avg within dataset
-                total_line_cnt = 0
-                tmp_dataset_type_to_token_name_to_layer_result = {}
                 for tmp_model_name in ALL_MODEL_NAMES:
-                    type_to_token_name_to_layer_result = {type_name: {token_name: [] for token_name in ALL_TOKENS_TO_BE_VISUALIZED} for type_name in tmp_token_result_fn_list}
-                    type_to_df = {tmp_token_result_fn: read_jsonl_to_csv(f"{input_result_dir}/{tmp_dataset_name}/{tmp_model_name}/{target_answer_idx}/{tmp_token_result_fn}") for tmp_token_result_fn in tmp_token_result_fn_list}
-                    total_line_cnt += len(type_to_df[tmp_token_result_fn_list[0]][type_to_df[tmp_token_result_fn_list[0]]["layer_idx"] == 0])       # num_samples
-                    for tmp_token_result_fn, tmp_token_type_name in zip(tmp_token_result_fn_list, tmp_all_token_types):
-                        for layer_idx in tqdm(range(LAYER_NUM)):
-                            if exp_type == "attn_knockout":
-                                # Knockout
-                                tmp_layer_three_answer_attn_knockout_results = np.array(type_to_df[tmp_token_result_fn][type_to_df[tmp_token_result_fn]["layer_idx"] == layer_idx][f"three_answer_first_token_attn_knockout_{component_name}_logit"].tolist()).transpose()  # shape: (3 answers, num_samples)
-                                tmp_layer_three_answer_full_component_results = np.array(type_to_df[tmp_token_result_fn][type_to_df[tmp_token_result_fn]["layer_idx"] == layer_idx][f"three_answer_first_token_full_{component_name}_logit"].tolist()).transpose()  # shape: (3 answers, num_samples)
+                    tmp_model_template_to_token_layer_result = {}
+                    # Average within each template
+                    for template_idx in [1, 2, 3]:
+                        type_to_token_layer_result = {type_name: {token_name: [] for token_name in ALL_TOKENS_TO_BE_VISUALIZED} for type_name in tmp_token_result_fn_list}
+                        type_to_df = {tmp_token_result_fn: read_jsonl_to_csv(f"{input_result_dir}/{tmp_dataset_name}/{tmp_model_name}/prompt_template_{template_idx}/{target_answer_idx}/{tmp_token_result_fn}") for tmp_token_result_fn in tmp_token_result_fn_list}
+                        for tmp_token_result_fn, tmp_token_type_name in zip(tmp_token_result_fn_list, tmp_all_token_types):
+                            for layer_idx in range(LAYER_NUM):
+                                if exp_type == "attn_knockout":
+                                    # Attention Knockout/MLP
+                                    tmp_layer_three_answer_attn_knockout_results = np.array(type_to_df[tmp_token_result_fn][type_to_df[tmp_token_result_fn]["layer_idx"] == layer_idx][f"three_answer_first_token_attn_knockout_{component_name}_logit"].tolist()).transpose()  # shape: (3 answers, num_samples)
+                                    tmp_layer_three_answer_full_component_results = np.array(type_to_df[tmp_token_result_fn][type_to_df[tmp_token_result_fn]["layer_idx"] == layer_idx][f"three_answer_first_token_full_{component_name}_logit"].tolist()).transpose()  # shape: (3 answers, num_samples)
 
-                                tmp_layer_subject_attn_knockout_results = np.array(type_to_df[tmp_token_result_fn][type_to_df[tmp_token_result_fn]["layer_idx"] == layer_idx][f"subject_first_token_attn_knockout_{component_name}_logit"].tolist())  # shape: (num_samples,)
-                                tmp_layer_subject_full_component_results = np.array(type_to_df[tmp_token_result_fn][type_to_df[tmp_token_result_fn]["layer_idx"] == layer_idx][f"subject_first_token_full_{component_name}_logit"].tolist())  # shape: (num_samples,)
+                                    tmp_layer_subject_attn_knockout_results = np.array(type_to_df[tmp_token_result_fn][type_to_df[tmp_token_result_fn]["layer_idx"] == layer_idx][f"subject_first_token_attn_knockout_{component_name}_logit"].tolist())  # shape: (num_samples,)
+                                    tmp_layer_subject_full_component_results = np.array(type_to_df[tmp_token_result_fn][type_to_df[tmp_token_result_fn]["layer_idx"] == layer_idx][f"subject_first_token_full_{component_name}_logit"].tolist())  # shape: (num_samples,)
 
-                                for tmp_ans_idx in range(3):
-                                    type_to_token_name_to_layer_result[tmp_token_result_fn][f'answer_{tmp_ans_idx+1}'].append(np.sum(tmp_layer_three_answer_full_component_results[tmp_ans_idx] - tmp_layer_three_answer_attn_knockout_results[tmp_ans_idx], axis=0))
-                                type_to_token_name_to_layer_result[tmp_token_result_fn]['subject'].append(np.sum(tmp_layer_subject_full_component_results - tmp_layer_subject_attn_knockout_results, axis=0))
-                            else:
-                                # Token lens
-                                tmp_layer_three_answer_results = np.array(type_to_df[tmp_token_result_fn][type_to_df[tmp_token_result_fn]["layer_idx"] == layer_idx][f"three_answer_first_token_logit"].tolist()).transpose()  # shape: (3 answers, num_samples)
-                                tmp_layer_subject_results = np.array(type_to_df[tmp_token_result_fn][type_to_df[tmp_token_result_fn]["layer_idx"] == layer_idx][f"subject_first_token_logit"].tolist())  # shape: (num_samples,)
+                                    for tmp_ans_idx in [1, 2, 3]:
+                                        type_to_token_layer_result[tmp_token_result_fn][f'answer_{tmp_ans_idx}'].append(np.average(tmp_layer_three_answer_full_component_results[tmp_ans_idx - 1] - tmp_layer_three_answer_attn_knockout_results[tmp_ans_idx - 1], axis=0))
+                                    type_to_token_layer_result[tmp_token_result_fn]['subject'].append(np.average(tmp_layer_subject_full_component_results - tmp_layer_subject_attn_knockout_results, axis=0))
+                                else:
+                                    # Token lens/Attention
+                                    tmp_layer_three_answer_results = np.array(type_to_df[tmp_token_result_fn][type_to_df[tmp_token_result_fn]["layer_idx"] == layer_idx][f"three_answer_first_token_logit"].tolist()).transpose()  # shape: (3 answers, num_samples)
+                                    tmp_layer_subject_results = np.array(type_to_df[tmp_token_result_fn][type_to_df[tmp_token_result_fn]["layer_idx"] == layer_idx][f"subject_first_token_logit"].tolist())  # shape: (num_samples,)
 
-                                for tmp_ans_idx in range(3):
-                                    type_to_token_name_to_layer_result[tmp_token_result_fn][f'answer_{tmp_ans_idx+1}'].append(np.sum(tmp_layer_three_answer_results[tmp_ans_idx], axis=0))
-                                type_to_token_name_to_layer_result[tmp_token_result_fn]['subject'].append(np.sum(tmp_layer_subject_results, axis=0))
+                                    for tmp_ans_idx in [1, 2, 3]:
+                                        type_to_token_layer_result[tmp_token_result_fn][f'answer_{tmp_ans_idx}'].append(np.average(tmp_layer_three_answer_results[tmp_ans_idx - 1], axis=0))
+                                    type_to_token_layer_result[tmp_token_result_fn]['subject'].append(np.average(tmp_layer_subject_results, axis=0))
 
-                    if tmp_dataset_type_to_token_name_to_layer_result == {}:
-                        tmp_dataset_type_to_token_name_to_layer_result = type_to_token_name_to_layer_result
-                    else:
-                        for type_name, result in type_to_token_name_to_layer_result.items():
+                        progress.update(1)
+
+                        if tmp_model_template_to_token_layer_result == {}:  # Initialize
+                            tmp_model_template_to_token_layer_result = type_to_token_layer_result
+
+                        # Add up avg from each template
+                        for type_name, result in type_to_token_layer_result.items():
                             for token_name, result_list in result.items():
-                                tmp_dataset_type_to_token_name_to_layer_result[type_name][token_name] = (np.array(tmp_dataset_type_to_token_name_to_layer_result[type_name][token_name]) + np.array(result_list)).tolist()
+                                tmp_model_template_to_token_layer_result[type_name][token_name] = (np.array(tmp_model_template_to_token_layer_result[type_name][token_name]) + np.array(result_list)).tolist()
 
-                # calculate avg
-                for type_name, result in tmp_dataset_type_to_token_name_to_layer_result.items():
+                    # Macro-average across templates
+                    for type_name, result in tmp_model_template_to_token_layer_result.items():
+                        for token_name, result_list in result.items():
+                            if dataset_to_exp_type_to_token_layer_result[tmp_dataset_name] == {}:
+                                dataset_to_exp_type_to_token_layer_result[tmp_dataset_name] = {type_name: {token_name: None for token_name in ALL_TOKENS_TO_BE_VISUALIZED} for type_name in tmp_token_result_fn_list}
+                            if dataset_to_exp_type_to_token_layer_result[tmp_dataset_name][type_name][token_name] is None:
+                                dataset_to_exp_type_to_token_layer_result[tmp_dataset_name][type_name][token_name] = (np.array(result_list) / TEMPLATE_NUM).tolist()
+                            else:
+                                dataset_to_exp_type_to_token_layer_result[tmp_dataset_name][type_name][token_name] = np.sum([dataset_to_exp_type_to_token_layer_result[tmp_dataset_name][type_name][token_name], np.array(result_list) / TEMPLATE_NUM], axis=0).tolist()
+
+                # Macro-average across models
+                for type_name, result in dataset_to_exp_type_to_token_layer_result[tmp_dataset_name].items():
                     for token_name, result_list in result.items():
-                        tmp_dataset_type_to_token_name_to_layer_result[type_name][token_name] = (np.array(result_list) / total_line_cnt).tolist()
-                dataset_name_to_type_to_layer_result[tmp_dataset_name] = tmp_dataset_type_to_token_name_to_layer_result
+                        dataset_to_exp_type_to_token_layer_result[tmp_dataset_name][type_name][token_name] = (np.array(result_list) / len(ALL_MODEL_NAMES)).tolist()
 
             # Macro-average across datasets
             macro_avg_result = {type_name: {token_to_be_visualized: None for token_to_be_visualized in ALL_TOKENS_TO_BE_VISUALIZED} for type_name in tmp_token_result_fn_list}
-            for _, result_dict in dataset_name_to_type_to_layer_result.items():
+            for _, result_dict in dataset_to_exp_type_to_token_layer_result.items():
                 for type_name, result in result_dict.items():
-                    for token_to_be_visualized, token_vals in result.items():
-                        if macro_avg_result[type_name][token_to_be_visualized] is None:
-                            macro_avg_result[type_name][token_to_be_visualized] = np.array(token_vals)
+                    for token_name, token_vals in result.items():
+                        if macro_avg_result[type_name][token_name] is None:
+                            macro_avg_result[type_name][token_name] = np.array(token_vals)
                         else:
-                            macro_avg_result[type_name][token_to_be_visualized] += np.array(token_vals)
+                            macro_avg_result[type_name][token_name] += np.array(token_vals)
             for type_name, result_dict in macro_avg_result.items():
-                for token_to_be_visualized, token_vals in result_dict.items():
-                    macro_avg_result[type_name][token_to_be_visualized] = (token_vals / len(ALL_DATASET_NAMES)).tolist()
+                for token_name, token_vals in result_dict.items():
+                    macro_avg_result[type_name][token_name] = (token_vals / len(ALL_DATASET_NAMES)).tolist()
+
             for tmp_token_result_fn, tmp_token_type_name in zip(tmp_token_result_fn_list, tmp_all_token_types):
-                tmp_output_dir = os.path.join(f"{input_result_dir}/figures/macro_avg_figures", f"{'full_figures' if not input_omit_early_layers else 'omit_early_layer_figures'}")
+                tmp_output_dir = os.path.join(f"{input_result_dir}/figures/avg_figures", f"{'full_figures' if not input_omit_early_layers else 'omit_early_layer_figures'}")
+                os.makedirs(tmp_output_dir, exist_ok=True)
                 if tmp_token_type_name == "answer_1" or tmp_token_type_name == "answer_2":
-                    tmp_token_type_name_for_fn_name = "prev_ans"
-                    output_fn = f"{tmp_output_dir}/{tmp_token_type_name_for_fn_name}/{exp_type}_{tmp_token_type_name}_at_step_#{target_answer_idx}.png"
+                    token_name = "prev_ans"
+                    output_fn = f"{tmp_output_dir}/{token_name}/{exp_type}_{tmp_token_type_name}_at_step_#{target_answer_idx}.png"
                 else:
-                    tmp_token_type_name_for_fn_name = tmp_token_type_name
-                    output_fn = f"{tmp_output_dir}/{tmp_token_type_name_for_fn_name}/{exp_type}_at_step_#{target_answer_idx}.png"
+                    token_name = tmp_token_type_name
+                    output_fn = f"{tmp_output_dir}/{token_name}/{exp_type}_at_step_#{target_answer_idx}.png"
                 visualize_token_lens_three_ans_to_layer_result(
                     macro_avg_result[tmp_token_result_fn],
                     exp_type, tmp_token_type_name,
@@ -269,7 +285,7 @@ def process_critical_tokens_macro_avg_result(input_result_dir, input_omit_early_
                     input_omit_early_layers,
                     output_fn,
                 )
-                token_type_to_exp_type_to_step_fn_list.setdefault(tmp_token_type_name_for_fn_name, {}).setdefault(exp_type, []).append(output_fn)
+                token_type_to_exp_type_to_step_fn_list.setdefault(token_name, {}).setdefault(exp_type, []).append(output_fn)
 
         # Merge the images of three answer steps into one (Comment these out if you don't need this)
         if not input_omit_early_layers:
@@ -281,10 +297,9 @@ def process_critical_tokens_macro_avg_result(input_result_dir, input_omit_early_
                     title = f"MLP Logit Diff when Knocking Out {reformat_var_name_for_visualization(token_type)}"
                 merge_figures(
                     all_output_fn[exp_type], title,
-                    f"{args.result_dir}/figures/macro_avg_figures/full_figures/{token_type}/{exp_type}_logit.png",
+                    f"{input_result_dir}/figures/avg_figures/full_figures/{token_type}/{exp_type}_logit.png",
                     "token_lens_attn_knockout",
                 )
-
 
     if input_omit_early_layers:
         for token_type, result_dict in token_type_to_exp_type_to_step_fn_list.items():
@@ -295,7 +310,7 @@ def process_critical_tokens_macro_avg_result(input_result_dir, input_omit_early_
                 f"",
                 f"Token Lens Logits when Attending to {token_type_for_visualize}",
                 f"MLP Logit Diff: Knockout {token_type_for_visualize}",
-                f"{args.result_dir}/figures/macro_avg_figures/omit_early_layer_figures/{token_type}_logit.png",
+                f"{input_result_dir}/figures/avg_figures/omit_early_layer_figures/{token_type}_logit.png",
             )
 
 if __name__ == "__main__":
@@ -303,20 +318,27 @@ if __name__ == "__main__":
     args_parser.add_argument("--result_dir", type=str, required=True)
     args_parser.add_argument("--dataset_name", type=str)
     args_parser.add_argument("--model_name", type=str)
+    args_parser.add_argument("--template_idx", type=str, required=True)  # ["1", "2", "3", "macro_avg"]
     args_parser.add_argument("--omit_early_layers", type=lambda x:x.lower()=="true", required=True)  # True for reproducing figure with 6 subfigures in a row in the paper. False for full figures in the appendix
     args = args_parser.parse_args()
 
     LAYER_NUM = 32
     OMIT_LAYER_START_IDX = 15
 
-    # When visualizing macro average results across all models and datasets, both or neither of dataset_name and model_name should be "macro_avg"
-    # Otherwise, choose specific dataset_name and model_name
-    assert (args.dataset_name == "macro_avg") == (args.model_name == "macro_avg")
+    # When visualizing macro average results across all models, datasets, and prompt templates, all or none of dataset_name, model_name, template_idx should be "macro_avg"
+    # Otherwise, choose specific dataset_name, model_name, and template_idx
+    assert (args.dataset_name == "macro_avg") == (args.model_name == "macro_avg") == (args.template_idx == "macro_avg")
     if args.dataset_name == "macro_avg":
         print(f"Visualize results in {args.result_dir}")
         process_critical_tokens_macro_avg_result(args.result_dir, input_omit_early_layers=args.omit_early_layers)
     else:
         print(f"Visualize results in {args.result_dir}/{args.dataset_name}/{args.model_name}")
-        process_dataset_model_specific_critical_tokens_result(args.result_dir, args.dataset_name, args.model_name, input_omit_early_layers=args.omit_early_layers)
+        process_dataset_model_specific_critical_tokens_result(
+            input_result_dir=args.result_dir,
+            input_dataset_name=args.dataset_name,
+            input_model_name=args.model_name,
+            input_template_idx=args.template_idx,
+            input_omit_early_layers=args.omit_early_layers
+        )
 
     #bash scripts/visualize_critical_token_outputs.sh
