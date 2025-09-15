@@ -100,7 +100,7 @@ def visualize_macro_avg_all_heads_promotion_suppression_rate():
     with open(f"{project_root_dir}/datasets/dataset_to_model_to_answer_idx_to_layer_mean_std.json", "r") as f:
         dataset_to_model_to_answer_idx_to_layer_mean_std = json.load(f)
 
-    overall_output_dir = f"{result_dir}/visualizations/macro_avg"
+    overall_output_dir = f"{result_dir}/figures/avg_figures/prompt_template_{template_idx}"     # TODO: current code only supports macro-averaging across models and datasets on one prompt template (will update this later when have time)
     os.makedirs(overall_output_dir, exist_ok=True)
 
     overall_target_idx_to_dataset_to_layer_head_idx_to_behavior_cnt = {target_idx: {
@@ -114,7 +114,7 @@ def visualize_macro_avg_all_heads_promotion_suppression_rate():
                 for layer_idx in tqdm(range(layer_cnt)):
                     tmp_layer_mean_std_dict = dataset_to_model_to_answer_idx_to_layer_mean_std[dataset_name][model_name][f'{target_answer_idx}'][f'{layer_idx}']
                     tmp_layer_mean, tmp_layer_std = tmp_layer_mean_std_dict["mean"], tmp_layer_mean_std_dict["std"]
-                    tmp_jsonl_fn = f"{result_dir}/{dataset_name}/{model_name}/{target_answer_idx}/layer_{layer_idx}_output.jsonl"
+                    tmp_jsonl_fn = f"{result_dir}/{dataset_name}/{model_name}/prompt_template_{template_idx}/{target_answer_idx}/layer_{layer_idx}_output.jsonl"
                     with open(tmp_jsonl_fn, "r") as f:
                         lines = f.readlines()
                         for line in lines:
@@ -131,7 +131,7 @@ def visualize_macro_avg_all_heads_promotion_suppression_rate():
 
                 avg_layer_head_idx_to_behavior_cnt = {k: {k2: v2 / layer_head_idx_to_behavior_cnt[k]["total"] for k2, v2 in v.items()} for k, v in layer_head_idx_to_behavior_cnt.items()}
 
-                tmp_output_dir = f"{result_dir}/{dataset_name}/{model_name}/{target_answer_idx}"
+                tmp_output_dir = f"{overall_output_dir}/{dataset_name}/{model_name}/{target_answer_idx}"
                 tmp_output_fn = f"{tmp_output_dir}_head_promotion_suppression_rate.png"
 
                 visualize_head_promotion_suppression_rate(avg_layer_head_idx_to_behavior_cnt, tmp_output_fn)
@@ -164,9 +164,11 @@ if __name__ == "__main__":
     args_parser = argparse.ArgumentParser()
     args_parser.add_argument("--project_root_dir", type=str, required=True)
     args_parser.add_argument("--result_dir", type=str, required=True)
+    args_parser.add_argument("--template_idx", type=str, required=True)
     args = args_parser.parse_args()
     project_root_dir = args.project_root_dir
     result_dir = args.result_dir
+    template_idx = args.template_idx
 
     visualize_macro_avg_all_heads_promotion_suppression_rate()
 
