@@ -5,6 +5,7 @@ import os
 import matplotlib
 import numpy as np
 from matplotlib import pyplot as plt
+from tqdm import tqdm
 
 from src.analysis_module.common_utils import get_component_full_name, COLOR_NAME_TO_RGB, merge_figures, \
     reformat_var_name_for_visualization, get_model_name_for_visualization, \
@@ -94,6 +95,7 @@ def visualize_dataset_model_specific_result(result_dir, dataset_name, model_name
     dataset_name_for_visualize = reformat_var_name_for_visualization(dataset_name)
     model_name_for_visualize = get_model_name_for_visualization(model_name)
     component_name_to_step_fn_list = {}
+    progress = tqdm(total=len(ALL_COMPONENTS) * 3)
     for component_name in ALL_COMPONENTS:
         tmp_output_dir = f"{data_model_specific_dir}/{'full_figures' if not omit_early_layers else 'omit_early_layer_figures'}/{component_name}"
         output_figure_fn_list = []
@@ -108,6 +110,7 @@ def visualize_dataset_model_specific_result(result_dir, dataset_name, model_name
                                                                               omit_early_layers)
             output_figure_fn_list.append(output_figure_fn)
             component_name_to_step_fn_list.setdefault(component_name, []).append(output_figure_fn)
+            progress.update(1)
         # Merge three images
         if not omit_early_layers:
             title = f"{get_component_full_name(component_name)} Output Logit: {model_name_for_visualize} on {dataset_name_for_visualize}"
@@ -132,6 +135,7 @@ def visualize_macro_avg(result_dir, omit_early_layers):
     output_dir = os.path.join(result_dir, "macro_avg_figures")
 
     component_name_to_step_fn_list = {}
+    progress = tqdm(total=len(ALL_COMPONENTS) * 3 * len(ALL_DATASET_NAMES) * len(ALL_MODEL_NAMES) * TEMPLATE_NUM)
     for component_name in ALL_COMPONENTS:
         tmp_output_dir = f"{output_dir}/{'full_figures' if not omit_early_layers else 'omit_early_layer_figures'}/{component_name}"
         for target_answer_idx in [1, 2, 3]:
@@ -151,6 +155,7 @@ def visualize_macro_avg(result_dir, omit_early_layers):
                             # Add up for each layer
                             for token_name, layer_vals in tmp_result.items():
                                 tmp_data_model_results[token_name] = np.sum([np.array(tmp_data_model_results[token_name]), np.array(layer_vals)], axis=0)
+                        progress.update(1)
 
                     # For each model: Average across templates
                     for token_name in ALL_TOKENS_TO_BE_VISUALIZED:

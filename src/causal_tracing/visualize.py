@@ -127,7 +127,7 @@ def calculate_avg_causal_tracing_results_helper(input_result_jsonl, case_str, no
     scores = None
     all_low_scores = []
     all_high_scores = []
-    for idx, pred_line in tqdm(enumerate(input_result_lines), total=len(input_result_lines)):
+    for idx, pred_line in enumerate(input_result_lines):
         pred_line = json.loads(pred_line)
         all_low_scores.append(pred_line["low_score"])
         all_high_scores.append(pred_line["high_score"])
@@ -164,6 +164,7 @@ def calculate_avg_causal_tracing_results_helper(input_result_jsonl, case_str, no
 def visualize_dataset_model_specific_result(result_dir, model_name, dataset_name, template_idx):
     result_dir = f"{result_dir}/{dataset_name}/{model_name}/prompt_template_{template_idx}"
     all_fn_list = [[], []]  # Subject figures in the first list, prev_ans figures in the second list (will be merged together into one figure)
+    progress = tqdm(total=len(sub_result_dir_step_target_token) * len(ALL_KINDS))
     for idx, (tmp_dir, pred_step, noise_token_str) in enumerate(sub_result_dir_step_target_token):
         for kind in ALL_KINDS:
             instance_name = f"{result_dir}/{tmp_dir}/{kind}_causal_tracing"
@@ -185,6 +186,7 @@ def visualize_dataset_model_specific_result(result_dir, model_name, dataset_name
                     visualize=True
                 )
             all_fn_list[int(idx / 3)].append(f"{instance_name}.png")  # Subject figures in the first list, prev_ans figures in the second list
+            progress.update(1)
 
     # Merge figures: six for the subject and six for prev ans for specific model and dataset
     model_name_for_visualize = get_model_name_for_visualization(model_name)
@@ -202,6 +204,7 @@ def visualize_dataset_model_specific_result(result_dir, model_name, dataset_name
 def visualize_macro_avg(input_dir):
     output_dir = os.path.join(input_dir, "causal_tracing_avg_figures")
 
+    progress = tqdm(total=len(sub_result_dir_step_target_token) * len(ALL_KINDS) * len(ALL_DATASET_NAMES) * len(ALL_MODEL_NAMES) * TEMPLATE_NUM)
     for idx, (tmp_dir, pred_step, noise_token_str) in enumerate(sub_result_dir_step_target_token):
         for kind in ALL_KINDS:
             # Calculate macro avg results across three datasets
@@ -228,6 +231,8 @@ def visualize_macro_avg(input_dir):
                             tmp_data_model_results["scores"] += result["scores"]
                             tmp_data_model_results["low_score"] += result["low_score"]
                             tmp_data_model_results["high_score"] += result["high_score"]
+
+                    progress.update(1)
 
                     # For each model: Average across templates
                     if tmp_dataset_total_result == {}:
@@ -287,3 +292,4 @@ if __name__ == "__main__":
             args.template_idx
         )
 
+    # bash scripts/visualize_causal_tracing.sh
