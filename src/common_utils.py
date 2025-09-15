@@ -30,9 +30,9 @@ def load_config_and_setup_output_dir(args):
     target_answer_idx = configs.running_args.target_answer_idx
 
     short_dataset_name = configs.data_args.dataset_name
-    configs.data_args.dataset_name = f"datasets/{short_dataset_name}/{configs.model_args.model_name_or_path}/{short_dataset_name}_{target_answer_idx}.jsonl"
+    configs.data_args.dataset_name = f"datasets/{short_dataset_name}/{configs.model_args.model_name_or_path}/prompt_template_{configs.data_args.template_idx}/{short_dataset_name}_{target_answer_idx}.jsonl"
 
-    configs.running_args.output_dir = f"outputs/{configs.running_args.exp_type}/{short_dataset_name}/{configs.model_args.model_name_or_path}/{target_answer_idx}"
+    configs.running_args.output_dir = f"outputs/{configs.running_args.exp_type}/{short_dataset_name}/{configs.model_args.model_name_or_path}/prompt_template_{configs.data_args.template_idx}/{target_answer_idx}"
 
     output_dir = configs.running_args.output_dir
 

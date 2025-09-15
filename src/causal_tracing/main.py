@@ -156,6 +156,7 @@ def causal_analysis_on_one_to_many_pred_results(input_args):
     project_root_dir = input_args.project_root_dir
     model_name = input_args.model_name
     dataset_name = input_args.dataset_name
+    template_idx = input_args.template_idx
     max_causal_trace_cnt = 100      # Causal tracing using 100 entries
 
     mt = ModelAndTokenizer(
@@ -165,7 +166,7 @@ def causal_analysis_on_one_to_many_pred_results(input_args):
     )
 
     examine_type = input_args.examine_type
-    pred_result_dir = f"{project_root_dir}/datasets/{dataset_name}/{model_name}"
+    pred_result_dir = f"{project_root_dir}/datasets/{dataset_name}/{model_name}/prompt_template_{template_idx}"
     output_dir = pred_result_dir + f"/causal_tracing_{examine_type}"
     os.makedirs(output_dir, exist_ok=True)
 
@@ -231,6 +232,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("--examine_type", type=str, required=True)
     arg_parser.add_argument("--model_name", type=str, required=True)
     arg_parser.add_argument("--dataset_name", type=str, required=True)
+    arg_parser.add_argument("--template_idx", type=str, required=True)
     arg_parser.add_argument("--cache_dir", type=lambda x: None if x == "" else x, required=False, default=None)
     args = arg_parser.parse_args()
 

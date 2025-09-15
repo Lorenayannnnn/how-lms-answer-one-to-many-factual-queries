@@ -1,5 +1,6 @@
 data_args:
   dataset_name: "country_cities"    # TODO set dataset name: "country_cities", "artist_songs", "actor_movies"
+  template_idx: 1    # TODO set template index: 1, 2, 3
   cache_dir: null
   add_bos_token: False
   add_eos_token: False

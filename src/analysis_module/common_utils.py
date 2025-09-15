@@ -14,6 +14,8 @@ COLOR_NAME_TO_RGB = {
 
 ALL_TOKENS_TO_BE_VISUALIZED = ["answer_1", "answer_2", "answer_3", "subject"]
 
+TEMPLATE_NUM = 3
+
 
 def get_model_name_for_visualization(model_name):
     if "Llama" in model_name:
