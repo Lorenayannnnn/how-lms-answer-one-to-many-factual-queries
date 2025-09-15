@@ -7,12 +7,14 @@ import torch
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
-from src.analysis_module.common_utils import get_model_name_for_visualization, reformat_var_name_for_visualization
+from src.analysis_module.common_utils import get_model_name_for_visualization, reformat_var_name_for_visualization, \
+    TEMPLATE_NUM
 from src.causal_tracing.utils import merge_causal_tracing_figures, find_token_range, plot_trace_heatmap
 
 ALL_KINDS = ["attn", "mlp"]
 KIND_TO_FULL_NAME = {"attn": "Attn", "mlp": "MLP"}
 NOISE_TARGET_TO_FULL_NAME = {"subject": "Subject", "prev_ans_1": r"$o^{(1)}$", "prev_ans_2": r"$o^{(2)}$"}
+ANSWER_STEP_STR_TO_OBJECT_PROB_DIFF_LATEX = {"1": r"$\bigtriangleup~p(o^{(1)})$", "2": r"$\bigtriangleup~p(o^{(2)})$", "3": r"$\bigtriangleup~p(o^{(3)})$"}
 
 TASK_TO_RELATION_NAME = {
     "country_cities": "cities",
@@ -137,7 +139,6 @@ def calculate_avg_causal_tracing_results_helper(input_result_jsonl, case_str, no
         else:
             scores += position_token_vals
     answer_step_str = case_str.split("_")[1]
-    answer_step_str_to_object_prob_diff_latex = {"1": r"$\bigtriangleup~p(o^{(1)})$", "2": r"$\bigtriangleup~p(o^{(2)})$", "3": r"$\bigtriangleup~p(o^{(3)})$"}
     if calculate_avg:
         scores /= len(input_result_lines)
         low_score = np.average(all_low_scores).item()
@@ -151,7 +152,7 @@ def calculate_avg_causal_tracing_results_helper(input_result_jsonl, case_str, no
         "high_score": high_score,
         "input_tokens": ANSWER_STEP_TO_POSITION_TOKEN_NAMES[case_str],
         "subject_range": NOISE_TARGET_TOKEN_TO_RANGE[noise_target_str],
-        "answer": answer_step_str_to_object_prob_diff_latex[answer_step_str],
+        "answer": ANSWER_STEP_STR_TO_OBJECT_PROB_DIFF_LATEX[answer_step_str],
         "window": window,
         "kind": kind,
         "line_cnt": len(input_result_lines),
@@ -160,8 +161,8 @@ def calculate_avg_causal_tracing_results_helper(input_result_jsonl, case_str, no
     return results
 
 
-def visualize_dataset_model_specific_result(result_dir, model_name, dataset_name):
-    result_dir = f"{result_dir}/{dataset_name}/{model_name}"
+def visualize_dataset_model_specific_result(result_dir, model_name, dataset_name, template_idx):
+    result_dir = f"{result_dir}/{dataset_name}/{model_name}/prompt_template_{template_idx}"
     all_fn_list = [[], []]  # Subject figures in the first list, prev_ans figures in the second list (will be merged together into one figure)
     for idx, (tmp_dir, pred_step, noise_token_str) in enumerate(sub_result_dir_step_target_token):
         for kind in ALL_KINDS:
@@ -190,16 +191,16 @@ def visualize_dataset_model_specific_result(result_dir, model_name, dataset_name
     dataset_name_for_visualize = reformat_var_name_for_visualization(dataset_name)
     # Merge subject figures
     merge_causal_tracing_figures(all_fn_list[0],
-                                 f"Noising Subject Causal Tracing: {model_name_for_visualize} on {dataset_name_for_visualize}",
-                                 f"{result_dir}/data_model_specific/{dataset_name}/{model_name}/noise_subject_causal_tracing.png")
+                                 f"Noising Subject Causal Tracing: {model_name_for_visualize} on {dataset_name_for_visualize} (Template {template_idx})",
+                                 f"{result_dir}/causal_tracing_figures/noise_subject_causal_tracing.png")
     # Merge prev ans figures
     merge_causal_tracing_figures(all_fn_list[1],
-                                 f"Noising Previous Answer Causal Tracing: {model_name_for_visualize} on {dataset_name_for_visualize}",
-                                 f"{result_dir}/data_model_specific/{dataset_name}/{model_name}/noise_prev_ans_causal_tracing.png")
+                                 f"Noising Previous Answer Causal Tracing: {model_name_for_visualize} on {dataset_name_for_visualize} (Template {template_idx})",
+                                 f"{result_dir}/causal_tracing_figures/noise_prev_ans_causal_tracing.png")
 
 
 def visualize_macro_avg(input_dir):
-    output_dir = os.path.join(input_dir, "macro_avg_figures")
+    output_dir = os.path.join(input_dir, "causal_tracing_avg_figures")
 
     for idx, (tmp_dir, pred_step, noise_token_str) in enumerate(sub_result_dir_step_target_token):
         for kind in ALL_KINDS:
@@ -209,38 +210,47 @@ def visualize_macro_avg(input_dir):
             for dataset_name in ALL_DATASET_NAMES:
                 tmp_dataset_total_result = {}
                 for tmp_model_name in ALL_MODEL_NAMES:
-                    fn = f"{input_dir}/{dataset_name}/{tmp_model_name}/{tmp_dir}/{kind}_result.jsonl"
-                    result = calculate_avg_causal_tracing_results_helper(
-                        fn,
-                        f"step_{pred_step}",
-                        noise_token_str,
-                        kind,
-                        model_name=tmp_model_name,
-                        calculate_avg=False,
-                    )
-                    if tmp_dataset_total_result == {}:
-                        tmp_dataset_total_result = result
-                    else:
-                        tmp_dataset_total_result["scores"] += result["scores"]
-                        tmp_dataset_total_result["low_score"] += result["low_score"]
-                        tmp_dataset_total_result["high_score"] += result["high_score"]
-                        tmp_dataset_total_result["line_cnt"] += result["line_cnt"]
+                    tmp_data_model_results = {}
+                    for template_idx in range(1, TEMPLATE_NUM + 1):
+                        fn = f"{input_dir}/{dataset_name}/{tmp_model_name}/prompt_template_{template_idx}/{tmp_dir}/{kind}_result.jsonl"
 
-                # Calculate avg for one dataset
-                tmp_dataset_total_result["scores"] /= tmp_dataset_total_result["line_cnt"]
-                tmp_dataset_total_result["low_score"] /= tmp_dataset_total_result["line_cnt"]
-                tmp_dataset_total_result["high_score"] /= tmp_dataset_total_result["line_cnt"]
+                        result = calculate_avg_causal_tracing_results_helper(
+                            fn,
+                            f"step_{pred_step}",
+                            noise_token_str,
+                            kind,
+                            model_name=tmp_model_name,
+                            calculate_avg=True,
+                        )
+                        if tmp_data_model_results == {}:
+                            tmp_data_model_results = result
+                        else:
+                            tmp_data_model_results["scores"] += result["scores"]
+                            tmp_data_model_results["low_score"] += result["low_score"]
+                            tmp_data_model_results["high_score"] += result["high_score"]
+
+                    # For each model: Average across templates
+                    if tmp_dataset_total_result == {}:
+                        tmp_dataset_total_result = {"scores": 0, "low_score": 0, "high_score": 0}
+                    tmp_dataset_total_result["scores"] += tmp_data_model_results["scores"] / TEMPLATE_NUM
+                    tmp_dataset_total_result["low_score"] += tmp_data_model_results["low_score"] / TEMPLATE_NUM
+                    tmp_dataset_total_result["high_score"] += tmp_data_model_results["high_score"] / TEMPLATE_NUM
+
+                # Average across models
+                tmp_dataset_total_result["scores"] /= len(ALL_MODEL_NAMES)
+                tmp_dataset_total_result["low_score"] /= len(ALL_MODEL_NAMES)
+                tmp_dataset_total_result["high_score"] /= len(ALL_MODEL_NAMES)
                 dataset_name_to_results[dataset_name] = tmp_dataset_total_result
 
             results = {
                 "scores": (torch.stack([dataset_name_to_results[dataset_name]["scores"] for dataset_name in ALL_DATASET_NAMES]).sum(dim=0) / len(ALL_DATASET_NAMES)).tolist(),
                 "low_score": np.average([dataset_name_to_results[dataset_name]["low_score"] for dataset_name in ALL_DATASET_NAMES]).item(),
                 "high_score": np.average([dataset_name_to_results[dataset_name]["high_score"] for dataset_name in ALL_DATASET_NAMES]).item(),
-                "input_tokens": dataset_name_to_results[ALL_DATASET_NAMES[0]]["input_tokens"],
-                "subject_range": dataset_name_to_results[ALL_DATASET_NAMES[0]]["subject_range"],
-                "answer": dataset_name_to_results[ALL_DATASET_NAMES[0]]["answer"],
-                "window": dataset_name_to_results[ALL_DATASET_NAMES[0]]["window"],
-                "kind": dataset_name_to_results[ALL_DATASET_NAMES[0]]["kind"],
+                "input_tokens": ANSWER_STEP_TO_POSITION_TOKEN_NAMES[f"step_{pred_step}"],
+                "subject_range": NOISE_TARGET_TOKEN_TO_RANGE[noise_token_str],
+                "answer": ANSWER_STEP_STR_TO_OBJECT_PROB_DIFF_LATEX[f"{pred_step}"],
+                "window": 10,   # Default val
+                "kind": kind,
             }
 
             instance_name = f"{output_dir}/{tmp_dir}/{kind}_causal_tracing"
@@ -259,11 +269,12 @@ if __name__ == "__main__":
     arg_parser.add_argument("--project_root_dir", type=str, required=True)
     arg_parser.add_argument("--dataset_name", type=str, required=False)
     arg_parser.add_argument("--model_name", type=str, required=False)
+    arg_parser.add_argument("--template_idx", type=str, required=False)
 
     args = arg_parser.parse_args()
-    # When visualizing macro average results across all models and datasets, both or neither of dataset_name and model_name should be "macro_avg"
-    # Otherwise, choose specific dataset_name and model_name
-    assert (args.dataset_name == "macro_avg") == (args.model_name == "macro_avg")
+    # When visualizing macro average results across all models, datasets, and prompt templates, all or none of dataset_name, model_name, template_idx should be "macro_avg"
+    # Otherwise, choose specific dataset_name, model_name, and template_idx
+    assert (args.dataset_name == "macro_avg") == (args.model_name == "macro_avg") == (args.template_idx == "macro_avg")
     if args.dataset_name == "macro_avg":
         print(f"Visualize macro_avg result")
         visualize_macro_avg(os.path.join(args.project_root_dir, "datasets"))
@@ -272,6 +283,7 @@ if __name__ == "__main__":
         visualize_dataset_model_specific_result(
             os.path.join(args.project_root_dir, "datasets"),
             args.model_name,
-            args.dataset_name
+            args.dataset_name,
+            args.template_idx
         )
 
