@@ -1,5 +1,5 @@
 # how-lms-answer-one-to-many-factual-queries
-This repository is the official implementation of our paper [Promote, Suppress, Iterate: How Language Models Answer One-to-Many Factual Queries](https://www.arxiv.org/abs/2502.20475).
+This repository is the official implementation of our EMNLP 2025 paper [Promote, Suppress, Iterate: How Language Models Answer One-to-Many Factual Queries](https://www.arxiv.org/abs/2502.20475).
 
 ## Setup
 ### Dependencies
@@ -24,22 +24,24 @@ The [datasets](datasets) directory contains all the data used in the experiments
 └── datasets
     └── actor_movies
         └──meta-llama/Meta-Llama-3-8B-Instruct
-            ├── actor_movies_1.jsonl
-            ├── actor_movies_2.jsonl
-            └── actor_movies_3.jsonl
+            └──prompt_template_1
+               ├── actor_movies_1.jsonl
+               ├── actor_movies_2.jsonl
+               └── actor_movies_3.jsonl
+            └──prompt_template_2
+            └──prompt_template_3
         └──mistralai/Mistral-7B-Instruct-v0.2
             └── ...
     └── artist_songs
     └── country_cities
 ```
-
-where $i$ in ```{dataset_name}_{i}.jsonl``` is the answer step. The datasets are also available on Hugging Face at [LorenaYannnnn/how_lms_answer_one_to_many_factual_queries](https://huggingface.co/datasets/LorenaYannnnn/how_lms_answer_one_to_many_factual_queries).
+Each pair of dataset and model has three prompt templates. $i$ in ```{dataset_name}_{i}.jsonl``` is the answer step. The datasets are also available on Hugging Face at [LorenaYannnnn/how_lms_answer_one_to_many_factual_queries](https://huggingface.co/datasets/LorenaYannnnn/how_lms_answer_one_to_many_factual_queries).
 
 Refer to [README.md](datasets/README.md) for file content details and section 3.2 of the paper for dataset curation.
 
 ## Experiments
 ### Decoding the Overall Mechanism: Decode Attention and MLP Outputs
-1. Set model, dataset, and answer step in [run_main_configs.yaml](configs/run_main_configs.yaml). Set ```exp_type``` to be ```decode_attn_mlp_outputs```.
+1. Set model, dataset, prompt template, and answer step in [run_main_configs.yaml](configs/run_main_configs.yaml). Set ```exp_type``` to be ```decode_attn_mlp_outputs```.
 2. Run:
     ```
     bash scripts/run_main.sh
@@ -48,10 +50,11 @@ Refer to [README.md](datasets/README.md) for file content details and section 3.
     ```
     bash scripts/visualize_decode_attention_mlp_output.sh
     ```
+   Adjust visualization parameters in ```visualize_token_lens_three_ans_to_layer_result()``` in [visualize_decode_attention_mlp_outputs.py](src/analysis_module/visualize_decode_attention_mlp_outputs.py).
 
 ### Which Tokens Matter: Causal Tracing
 We follow [ROME](https://github.com/kmeng01/rome) to run causal tracing experiments. All codes are in [causal_tracing](src/causal_tracing) directory.
-1. Set model, dataset, and token you want to noise (noise_subject/noise_prev_ans) in [run_causal_tracing.sh](scripts/run_causal_tracing.sh).
+1. Set model, dataset, prompt template, and token you want to noise (noise_subject/noise_prev_ans) in [run_causal_tracing.sh](scripts/run_causal_tracing.sh).
 2. Run:
     ```
     bash scripts/run_causal_tracing.sh
@@ -85,10 +88,10 @@ We follow [ROME](https://github.com/kmeng01/rome) to run causal tracing experime
 
 ## Citation
 ```
-@article{yan2025promote,
-  title={Promote, Suppress, Iterate: How Language Models Answer One-to-Many Factual Queries},
-  author={Yan, Tianyi Lorena and Jia, Robin},
-  journal={arXiv preprint arXiv:2502.20475},
-  year={2025}
+@inproceedings{yan2025promote,
+  title     = {Promote, Suppress, Iterate: How Language Models Answer One-to-Many Factual Queries},
+  author    = {Yan, Tianyi Lorena and Jia, Robin},
+  booktitle = {Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing},
+  year      = {2025}
 }
 ```
