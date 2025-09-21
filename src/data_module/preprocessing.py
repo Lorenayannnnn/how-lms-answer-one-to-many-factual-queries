@@ -24,11 +24,6 @@ def tokenize(entry, target_answer_idx):
         entry[f"right_to_answer_{tmp_idx}_last_token"] = -(len(entry["input_ids"]) - three_answers_start_end_idx[tmp_idx - 1][1]) - 1
         entry[f"prev_answer_{tmp_idx}_start_end_idx"] = three_answers_start_end_idx[tmp_idx - 1]
 
-    # if "prev_answer_1_start_end_idx" in entry.keys():
-    #     entry["right_to_answer_1_last_token"] = -(len(entry["input_ids"]) - entry["prev_answer_1_start_end_idx"][1]) - 1
-    # if "prev_answer_2_start_end_idx" in entry.keys():
-    #     entry["right_to_answer_2_last_token"] = -(len(entry["input_ids"]) - entry["prev_answer_2_start_end_idx"][1]) - 1
-
     entry["last_token_start_end_idx"] = [len(entry["input_ids"]) - 1, len(entry["input_ids"])]
     entry["last_token_position_from_right"] = -1
 
@@ -39,7 +34,7 @@ def preprocess(configs, predict_dataset):
     """takes in the raw dataset and preprocesses it into the format we want"""
 
     tokenizer = create_tokenizer(configs)
-    tokenized_dataset = predict_dataset.map(tokenize)
+    tokenized_dataset = predict_dataset.map(tokenize, fn_kwargs={"target_answer_idx": configs.running_args.target_answer_idx})
 
     return tokenizer, tokenized_dataset
 
