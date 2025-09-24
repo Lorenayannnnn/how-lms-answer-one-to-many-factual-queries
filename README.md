@@ -75,7 +75,7 @@ We follow [ROME](https://github.com/kmeng01/rome) to run causal tracing experime
     bash scripts/visualize_critical_token_outputs.sh
     ```
 
-### Function of Attention Heads (Appendix F)
+### Function of Attention Heads
 1. Set ```exp_type``` to be ```examine_finegrained_attention_head``` in [run_main_configs.yaml](configs/run_main_configs.yaml)
 2. Run:
       ```
